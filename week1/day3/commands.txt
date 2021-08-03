@@ -2,7 +2,6 @@
 $ flow emulator --persist -v
 
 
-
 # Create collection for user-1
 $ flow transactions send artist/createCollection.transaction.cdc --signer emulator-user-1
 
