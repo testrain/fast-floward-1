@@ -1,0 +1,36 @@
+# Persist emulator storage through multiple restarts
+$ flow emulator --persist
+
+
+
+# Create collection for user-1
+$ flow transactions send artist/createCollection.transaction.cdc --signer emulator-user-1
+
+
+
+# Print and deposit into user-1 colleciton: success event
+$ flow transactions send artist/print.transaction.cdc --signer emulator-user-1 --args-json '[{"type": "UInt8", "value": "5"}, {"type": "UInt8", "value": "5"}, {"type": "String", "value": "* * * * *   *   * * *   *"}]'
+
+# Print the same pixels for user-1: failure event
+$ flow transactions send artist/print.transaction.cdc --signer emulator-user-1 --args-json '[{"type": "UInt8", "value": "5"}, {"type": "UInt8", "value": "5"}, {"type": "String", "value": "* * * * *   *   * * *   *"}]'
+
+# Print the same pixel for user-2: failure event
+$ flow transactions send artist/print.transaction.cdc --signer emulator-user-2 --args-json '[{"type": "UInt8", "value": "5"}, {"type": "UInt8", "value": "5"}, {"type": "String", "value": "* * * * *   *   * * *   *"}]'
+
+# Print another pixel for user-1: success event
+$ flow transactions send artist/print.transaction.cdc --signer emulator-user-1 --args-json '[{"type": "UInt8", "value": "5"}, {"type": "UInt8", "value": "5"}, {"type": "String", "value": "*   *   *   *   *   *   *"}]'
+
+# Print pixel for user-2: success event
+$ flow transactions send artist/print.transaction.cdc --signer emulator-user-2 --args-json '[{"type": "UInt8", "value": "5"}, {"type": "UInt8", "value": "5"}, {"type": "String", "value": " *  *   *   *   *   *   *"}]'
+
+
+
+
+# Display collection of user-1
+$ flow scripts execute ./artist/displayCollection.script.cdc --arg Address:0x179b6b1cb6755e31
+
+# Display collection of user-2
+$ flow scripts execute ./artist/displayCollection.script.cdc --arg Address:0xf3fcd2c1a78f5eee
+
+# Display collection for emulator-artist: nil
+$ flow scripts execute ./artist/displayCollection.script.cdc --arg Address:0x01cf0e2f2f715450
