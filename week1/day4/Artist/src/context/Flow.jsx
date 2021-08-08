@@ -83,31 +83,64 @@ function Provider(props) {
   );
   const createCollection = useCallback(
     async () => {
-        // TODO: Implement the createCollection transaction using "fcl.send".
+        const txId = await fcl
+          .send([
+            fcl.transaction`
+              import LocalArtist from 0xLocalArtist
 
-        /*
-        const transactionId = await fcl
-          .send([])
-          .then(fcl.decode);
-        return fcl.tx(transactionId).onceSealed();
-        */
-      
-        return null;
+              transaction {
+                prepare(acct: AuthAccount) {
+                  let selfCollectionCap = acct.getCapability<&{LocalArtist.PictureReceiver}>(/public/LocalArtistPictureReceiver);
+                  if (selfCollectionCap.check() == false) {
+                    acct.save(
+                      <- LocalArtist.createCollection(),
+                      to: /storage/LocalArtistPictureCollection
+                    );
+                    acct.link<&{LocalArtist.PictureReceiver}>(
+                      /public/LocalArtistPictureReceiver,
+                      target: /storage/LocalArtistPictureCollection
+                    );
+                  }
+                }
+              }
+            `,
+            fcl.payer(fcl.authz),
+            fcl.proposer(fcl.authz),
+            fcl.authorizations([fcl.authz]),
+            fcl.limit(9999)
+          ])
+          .then(fcl.decode)
+        
+          await fcl.tx(txId).onceSealed();
+          dispatch({type: 'setCollection', payload: []});
     },
     []
   );
   const destroyCollection = useCallback(
     async () => {
-      // TODO: Implement the destroyCollection.cdc transaction using "fcl.send".
+      const txId = await fcl
+        .send([
+          fcl.transaction`
+            import LocalArtist from 0xLocalArtist
 
-      /*
-      const transactionId = await fcl
-        .send([])
+            transaction() {
+              prepare(acct: AuthAccount) {
+                acct.unlink(/public/LocalArtistPictureReceiver)
+                let collection <- acct.load<@LocalArtist.Collection>(
+                  from: /storage/LocalArtistPictureCollection
+                )
+                destroy collection
+              }
+            }
+          `,
+          fcl.payer(fcl.authz),
+          fcl.proposer(fcl.authz),
+          fcl.authorizations([fcl.authz]),
+          fcl.limit(9999)
+        ])
         .then(fcl.decode);
-      return fcl.tx(transactionId).onceSealed();
-      */
-
-      return null;
+      await fcl.tx(txId).onceSealed();
+      dispatch({type: 'setCollection', payload: null});
     },
     []
   );
@@ -127,12 +160,25 @@ function Provider(props) {
               fcl.arg(state.user.addr, FlowTypes.Address)
             ]);
           }
-          
-          // TODO: Implement the getCollections.cdc script using "fcl.script", and
-          // the "args" in place for the script's arguments.
-          // Use the "fetchBalance" as an example.
+          const collection = await fcl
+            .send([
+              fcl.script`
+              import LocalArtist from 0xLocalArtist
 
-          const collection = [];
+              pub fun main(address: Address): [LocalArtist.Canvas] {
+                let account = getAccount(address)
+                let pictureReceiverRef = account
+                  .getCapability<&{LocalArtist.PictureReceiver}>(/public/LocalArtistPictureReceiver)
+                  .borrow()
+                  ?? panic("Couldn't borrow Picture Receiver reference.")
+              
+                return pictureReceiverRef.getCanvases()
+              }
+              `,
+              args
+            ])
+            .then(fcl.decode)
+
           const mappedCollection = collection.map(
             (serialized) => new Picture(
               serialized.pixels,
@@ -146,7 +192,7 @@ function Provider(props) {
           } else {
             dispatch({type: 'setCollection', payload: mappedCollection});
           }
-        } catch (error) {
+        } catch (error) {       
           if (address) {
             return null;
           } else {
@@ -159,16 +205,53 @@ function Provider(props) {
   );
   const printPicture = useCallback(
     async (picture) => {
-      // TODO: Implement the print.cdc transcation using "fcl.send".
-      
-      /*
-      const transactionId = await fcl
-        .send([])
-        .then(fcl.decode);
-      return fcl.tx(transactionId).onceSealed();
-      */
+      const txId = await fcl
+        .send([
+          fcl.transaction`
+          import LocalArtist from 0xLocalArtist
 
-      return null;
+          transaction(width: Int, height: Int, pixels: String) {
+            
+            let picture: @LocalArtist.Picture?
+            let collectionRef: &{LocalArtist.PictureReceiver}
+          
+            prepare(account: AuthAccount) {
+              let printerRef = getAccount(${process.env.REACT_APP_ARTIST_CONTRACT_HOST_ACCOUNT})
+                .getCapability<&LocalArtist.Printer>(/public/LocalArtistPicturePrinter)
+                .borrow()
+                ?? panic("Couldn't borrow printer reference.")
+                
+              self.picture <- printerRef.print(
+                width: width,
+                height: height,
+                pixels: pixels
+              )
+              self.collectionRef = account
+                .getCapability<&{LocalArtist.PictureReceiver}>(/public/LocalArtistPictureReceiver)
+                .borrow()
+                ?? panic("Couldn't borrow picture receiver reference.")
+            }
+            execute {
+              if self.picture == nil {
+                destroy self.picture
+              } else {
+                self.collectionRef.deposit(picture: <- self.picture!)
+              }
+            }
+          }
+          `,
+          fcl.args([
+            fcl.arg(picture.width, FlowTypes.Int),
+            fcl.arg(picture.height, FlowTypes.Int),
+            fcl.arg(picture.pixels, FlowTypes.String)
+          ]),
+          fcl.payer(fcl.authz),
+          fcl.proposer(fcl.authz),
+          fcl.authorizations([fcl.authz]),
+          fcl.limit(9999)
+        ])
+        .then(fcl.decode);
+      return fcl.tx(txId).onceSealed();
     },
     []
   );
@@ -177,23 +260,14 @@ function Provider(props) {
     dispatch({type: 'setUser', payload: user});
   };
   const logIn = () => {
-    // TODO: Implement FCL log in.
-    // TODO: Once implemented, remove the "setUser" call.
-    setUser({
-      loggedIn: true,
-      addr: '0xLocalArtist'
-    });
+    fcl.logIn();
   };
   const logOut = () => {
-    // TODO: Implement FCL log out.
+    fcl.unauthenticate();
   };
 
   useEffect(() => {
-    // TODO: Implement FCL subscription to get current user.
-    // TODO: Once implemented, remove the "setUser" call.
-    setUser({
-      loggedIn: null
-    });
+    fcl.currentUser().subscribe(setUser)
   }, []);
 
   useEffect(() => {
