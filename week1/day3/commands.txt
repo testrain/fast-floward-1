@@ -1,5 +1,5 @@
 # Persist emulator storage through multiple restarts
-$ flow emulator --persist
+$ flow emulator --persist -v
 
 
 
