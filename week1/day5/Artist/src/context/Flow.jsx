@@ -209,7 +209,7 @@ function Provider(props) {
             let collectionRef: &{LocalArtist.PictureReceiver}
 
             prepare(account: AuthAccount) {
-              // TODO: Change to your contract account address.
+
               let printerRef = getAccount(${process.env.REACT_APP_ARTIST_CONTRACT_HOST_ACCOUNT})
                 .getCapability<&LocalArtist.Printer>(/public/LocalArtistPicturePrinter)
                 .borrow()
@@ -285,15 +285,17 @@ function Provider(props) {
             let marketRef: &{LocalArtistMarket.MarketInterface}
 
             prepare(account: AuthAccount) {
-              // TODO: Change to your contract account address.
               self.marketRef = getAccount(${process.env.REACT_APP_ARTIST_CONTRACT_HOST_ACCOUNT})
                 .getCapability(/public/LocalArtistMarket)
                 .borrow<&{LocalArtistMarket.MarketInterface}>()
                 ?? panic("Couldn't borrow market reference.")
               
-              let collection <- account.load<@LocalArtist.Collection>(from: /storage/LocalArtistPictureCollection)!
-              self.picture <- collection.withdraw(pixels: pixels)
-              account.save<@LocalArtist.Collection>(<- collection, to: /storage/LocalArtistPictureCollection)
+              let collectionRef = account.borrow<&LocalArtist.Collection>(from: /storage/LocalArtistPictureCollection)!
+              self.picture <- collectionRef.withdraw(pixels: pixels)
+
+        //      let collection <- account.load<@LocalArtist.Collection>(from: /storage/LocalArtistPictureCollection)!
+        //      self.picture <- collection.withdraw(pixels: pixels)
+        //      account.save<@LocalArtist.Collection>(<- collection, to: /storage/LocalArtistPictureCollection)
 
               self.seller = account.address
             }
@@ -324,11 +326,27 @@ function Provider(props) {
     async (listingIndex) => {
       const transactionId = await fcl.send([
         fcl.transaction`
-          import LocalArtist from ${process.env.REACT_APP_ARTIST_CONTRACT_HOST_ACCOUNT}
           import LocalArtistMarket from ${process.env.REACT_APP_ARTIST_CONTRACT_HOST_ACCOUNT}
 
-          // TODO: Complete this transaction by calling LocalArtistMarket.withdraw().
           transaction(listingIndex: Int) {
+            prepare (acct: AuthAccount) {
+              let marketRef = getAccount(${process.env.REACT_APP_ARTIST_CONTRACT_HOST_ACCOUNT})
+                .getCapability<&{LocalArtistMarket.MarketInterface}>(/public/LocalArtistMarket)
+                .borrow() ?? panic("Couldn't borrow market interface reference")
+              
+              let listing: [LocalArtistMarket.Listing] = marketRef.getListings();
+              if (listingIndex >= listing.length) {
+                panic("listingIndex out of range");
+              } else if (listing[listingIndex].seller != acct.address) {
+                panic("msg.sender ["
+                  .concat(acct.address.toString())
+                  .concat("] is not the seller ")
+                  .concat(listing[listingIndex].seller.toString())
+                );
+              } else {
+                marketRef.withdraw(listingIndex: listingIndex, to: acct.address)
+              }
+            }
           }
         `,
         fcl.args([
@@ -353,8 +371,29 @@ function Provider(props) {
           import FungibleToken from 0x9a0766d93b6608b7
           import FlowToken from 0x7e60df042a9c0868
 
-          // TODO: Complete this transaction by calling LocalArtistMarket.buy().
           transaction(listingIndex: Int) {
+            let marketRef: &{LocalArtistMarket.MarketInterface};
+            let buyerVaultWithdrawn: @FungibleToken.Vault;
+            let buyerAddr: Address;
+
+            prepare(acct: AuthAccount) {
+              self.marketRef = getAccount(${process.env.REACT_APP_ARTIST_CONTRACT_HOST_ACCOUNT})
+                .getCapability<&{LocalArtistMarket.MarketInterface}>(/public/LocalArtistMarket)
+                .borrow() ?? panic("Couldn't borrow market interface reference");
+              let listing: [LocalArtistMarket.Listing] = self.marketRef.getListings();
+              if (listingIndex >= listing.length) {
+                panic("listingIndex out of range");
+              } else {
+                let price = listing[listingIndex].price;
+                let buyerVaultRef = acct.borrow<&FungibleToken.Vault>(from: /storage/flowTokenVault)!
+                self.buyerVaultWithdrawn <- buyerVaultRef.withdraw(amount: price)
+                self.buyerAddr = acct.address;
+              }
+            }
+
+            execute {
+              self.marketRef.buy(listing: listingIndex, with: <- self.buyerVaultWithdrawn, buyer: self.buyerAddr);
+            }
           }
         `,
         fcl.args([

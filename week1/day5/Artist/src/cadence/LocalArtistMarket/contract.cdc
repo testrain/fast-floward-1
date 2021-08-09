@@ -1,4 +1,4 @@
-import LocalArtist from "../LocalArtist/contract.cdc"
+import LocalArtist from 0x3e1c9476cfe21394
 import FungibleToken from 0x9a0766d93b6608b7
 import FlowToken from 0x7e60df042a9c0868
 
