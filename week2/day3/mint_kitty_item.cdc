@@ -1,5 +1,5 @@
-import KittyItems from Project.KittyItems;
-import NonFungibleToken from Flow.NonFungibleToken;
+import KittyItems from Project.KittyItems
+import NonFungibleToken from Flow.NonFungibleToken
 
 // This transction uses the NFTMinter resource to mint a new NFT.
 //

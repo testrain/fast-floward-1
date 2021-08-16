@@ -1,5 +1,5 @@
-import KittyItems from Project.KittyItems;
-import NonFungibleToken from Flow.NonFungibleToken;
+import KittyItems from Project.KittyItems
+import NonFungibleToken from Flow.NonFungibleToken
 
 // This transaction transfers a Kitty Item from one account to another.
 
