@@ -1,4 +1,4 @@
-import FungibleToken from Flow.FungibleToken;
+import FungibleToken from Flow.FungibleToken
 
 pub contract Kibble: FungibleToken {
     // TokensInitialized
