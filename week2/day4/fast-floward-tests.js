@@ -330,9 +330,9 @@ describe('Flow Dapp Tests', async () => {
             // 4) call kibbleGetBalance with testData2 and store the result
             let res2 = await DappLib.kibbleGetBalance(testData2)
             // 5) assert the result from step 3) equals 5.0
-            assert(res1.result, 5.0, "Admin now has kibble balance of 5.0")
+            assert.equal(res1.result, 5.0, "Admin now has kibble balance of 5.0")
             // 6) assert the result from step 4) equals 25.0
-            assert(res2.result, 25.0, "User now has kibble balance of 25.0")
+            assert.equal(res2.result, 25.0, "User now has kibble balance of 25.0")
         })
     });
 
